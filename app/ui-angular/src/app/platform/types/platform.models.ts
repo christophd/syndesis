@@ -192,6 +192,12 @@ export interface ActionDescriptor extends BaseEntity {
   propertyDefinitionSteps: Array<ActionDescriptorStep>;
   inputDataShape: DataShape;
   outputDataShape: DataShape;
+  standardizedErrors?: StandardizedError[];
+}
+
+export interface StandardizedError {
+  name: string;
+  displayName: string;
 }
 
 export type ActionDescriptors = Array<ActionDescriptor>;

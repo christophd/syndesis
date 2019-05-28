@@ -40,6 +40,7 @@ import {
 import {
   BasicFilterComponent,
   ContentBasedRouterComponent,
+  ResponseCodeMapperComponent,
   CurrentFlowService,
   DataMapperHostComponent,
   FlowPageService,
@@ -58,7 +59,7 @@ import {
   IntegrationStepConfigureComponent,
   ListActionsComponent,
   StepVisiblePipe,
-  TemplaterComponent,
+  TemplaterComponent
 } from '@syndesis/ui/integration/edit-page';
 import { ApiModule } from '@syndesis/ui/api';
 import { StoreModule } from '@ngrx/store';
@@ -218,6 +219,7 @@ const routes: Routes = [
     DataMapperHostComponent,
     BasicFilterComponent,
     ContentBasedRouterComponent,
+    ResponseCodeMapperComponent,
     TemplaterComponent,
     IntegrationConfigureActionComponent,
     IntegrationEditPage,

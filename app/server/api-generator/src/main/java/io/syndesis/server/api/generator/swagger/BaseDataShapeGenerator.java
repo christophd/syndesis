@@ -17,11 +17,13 @@ package io.syndesis.server.api.generator.swagger;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 import io.swagger.models.Operation;
 import io.swagger.models.Response;
 import io.swagger.models.parameters.BodyParameter;
 import io.swagger.models.parameters.Parameter;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 abstract class BaseDataShapeGenerator implements DataShapeGenerator {
@@ -52,5 +54,18 @@ abstract class BaseDataShapeGenerator implements DataShapeGenerator {
         return operation.getResponses().entrySet().stream()
             .map(e -> Pair.of(e.getKey(), e.getValue()))
             .filter(p -> p.getValue().getResponseSchema() != null).findFirst();
+    }
+
+    static String getErrorResponseSpecification(final Operation operation) {
+        Optional<Pair<String, Response>> okResponse = findResponseCodeValue(operation);
+
+        StringJoiner errorCodesModelBuilder = new StringJoiner(",", "[", "]");
+        operation.getResponses()
+                 .keySet()
+                 .stream()
+                 .filter(NumberUtils::isDigits)
+                 .filter(code -> !code.equals(okResponse.map(Pair::getKey).orElse("999")))
+                 .forEach(code -> errorCodesModelBuilder.add("{\"status\": \"" + code + "\", \"errors\": []}"));
+        return errorCodesModelBuilder.toString();
     }
 }

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import io.syndesis.common.util.Json;
+import io.syndesis.common.util.SyndesisConnectorException;
 import io.syndesis.common.util.json.JsonUtils;
 import io.syndesis.connector.sql.common.JSONBeanUtil;
 import io.syndesis.connector.sql.common.SqlParam;
@@ -59,7 +60,7 @@ public final class SqlConnectorCustomizer implements ComponentProxyCustomizer {
     }
 
     @SuppressWarnings("unchecked")
-    private void doBeforeProducer(Exchange exchange) throws IOException {
+    private void doBeforeProducer(Exchange exchange) {
         final Message in = exchange.getIn();
 
         List<String> jsonBeans = null;
@@ -68,7 +69,11 @@ public final class SqlConnectorCustomizer implements ComponentProxyCustomizer {
         } else if (in.getBody(String.class) != null) {
             String body = in.getBody(String.class);
             if (JsonUtils.isJsonArray(body)) {
-                jsonBeans = JsonUtils.arrayToJsonBeans(Json.reader().readTree(body));
+                try {
+                    jsonBeans = JsonUtils.arrayToJsonBeans(Json.reader().readTree(body));
+                } catch (IOException e) {
+                    throw new SyndesisConnectorException("DATA_ACCESS_ERROR", e);
+                }
             } else if (JsonUtils.isJson(body)) {
                 jsonBeans = Collections.singletonList(body);
             }

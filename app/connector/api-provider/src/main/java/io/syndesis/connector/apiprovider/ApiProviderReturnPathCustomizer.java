@@ -15,12 +15,23 @@
  */
 package io.syndesis.connector.apiprovider;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectReader;
 import io.syndesis.common.model.DataShape;
 import io.syndesis.common.model.DataShapeAware;
 import io.syndesis.common.model.DataShapeKinds;
 import io.syndesis.common.util.Json;
+import io.syndesis.common.util.SyndesisConnectorException;
 import io.syndesis.connector.support.processor.HttpRequestUnwrapperProcessor;
 import io.syndesis.connector.support.processor.util.SimpleJsonSchemaInspector;
 import io.syndesis.integration.component.proxy.ComponentProxyComponent;
@@ -30,18 +41,18 @@ import org.apache.camel.CamelContextAware;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.RuntimeCamelException;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import org.apache.camel.util.ObjectHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ApiProviderReturnPathCustomizer implements ComponentProxyCustomizer, CamelContextAware, DataShapeAware {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ApiProviderReturnPathCustomizer.class);
 
     private static final ObjectReader READER = Json.reader().forType(JsonNode.class);
 
     private static final String HTTP_RESPONSE_CODE_PROPERTY = "httpResponseCode";
+    private static final String HTTP_ERROR_RESPONSE_CODES_PROPERTY = "errorResponseCodes";
 
     private CamelContext context;
 
@@ -67,17 +78,47 @@ public class ApiProviderReturnPathCustomizer implements ComponentProxyCustomizer
         }
 
         try {
+            Map<String, List<String>> errorResponseCodeMappings = Optional.ofNullable(options.remove(HTTP_ERROR_RESPONSE_CODES_PROPERTY))
+                    .map(Object::toString)
+                    .map(ApiProviderReturnPathCustomizer::extractMappings)
+                    .orElse(Collections.emptyMap());
+
             consumeOption(this.context, options, HTTP_RESPONSE_CODE_PROPERTY, Integer.class, code ->
-                component.setAfterProducer(statusCodeUpdater(code))
+                component.setAfterProducer(statusCodeUpdater(code, errorResponseCodeMappings))
             );
         } catch (@SuppressWarnings("PMD.AvoidCatchingGenericException") Exception e) {
             throw new IllegalArgumentException(e);
         }
     }
 
-    private Processor statusCodeUpdater(Integer responseCode) {
+    private static Map<String, List<String>> extractMappings(String property) {
+        try {
+            if (ObjectHelper.isEmpty(property)) {
+                return Collections.emptyMap();
+            }
+
+            return Json.reader().forType(new TypeReference<Map<String, List<String>>>(){}).readValue(property);
+        } catch (IOException e) {
+            LOG.warn(String.format("Failed to read error code mapping property %s: %s", property, e.getMessage()), e);
+            return Collections.emptyMap();
+        }
+    }
+
+    private Processor statusCodeUpdater(Integer responseCode, Map<String, List<String>> errorResponseCodeMappings) {
         return exchange -> {
-            if (responseCode != null && exchange.getException() == null) {
+            if (exchange.getException() != null) {
+                int errorResponseCode = 500;
+                if (exchange.getException() instanceof SyndesisConnectorException) {
+                    for (Map.Entry<String, List<String>> mapping : errorResponseCodeMappings.entrySet()) {
+                        if (mapping.getValue().stream().anyMatch(((SyndesisConnectorException) exchange.getException()).getCategory()::equals)) {
+                            errorResponseCode = Integer.valueOf(mapping.getKey());
+                            break;
+                        }
+                    }
+                }
+
+                exchange.getIn().setHeader(Exchange.HTTP_RESPONSE_CODE, errorResponseCode);
+            } else if (responseCode != null) {
                 // Let's not override the return code in case of exceptions in the route execution
                 exchange.getIn().setHeader(Exchange.HTTP_RESPONSE_CODE, responseCode);
             }

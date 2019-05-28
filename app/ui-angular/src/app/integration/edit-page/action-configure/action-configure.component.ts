@@ -49,6 +49,7 @@ export class IntegrationConfigureActionComponent implements OnInit, OnDestroy {
   loading: boolean;
   error: any = undefined;
   hasConfiguration = false;
+  valid = false;
 
   constructor(
     public currentFlowService: CurrentFlowService,
@@ -80,6 +81,10 @@ export class IntegrationConfigureActionComponent implements OnInit, OnDestroy {
           this.route
         ),
     });
+  }
+
+  isCustomAction() {
+    return this.action.id === 'io.syndesis:api-provider-end';
   }
 
   buildData(data: any) {
@@ -117,7 +122,7 @@ export class IntegrationConfigureActionComponent implements OnInit, OnDestroy {
   }
 
   maybeDisableDone() {
-    return this.formGroup ? this.formGroup.invalid : false;
+    return this.formGroup ? this.formGroup.invalid : !this.valid;
   }
 
   canShowDone() {

@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.google.common.base.Strings;
 import io.swagger.models.HttpMethod;
 import io.swagger.models.Info;
 import io.swagger.models.Operation;
@@ -54,11 +55,8 @@ import io.syndesis.server.api.generator.APIIntegration;
 import io.syndesis.server.api.generator.APIValidationContext;
 import io.syndesis.server.api.generator.ProvidedApiTemplate;
 import io.syndesis.server.api.generator.swagger.util.SwaggerHelper;
-
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.tuple.Pair;
-
-import com.google.common.base.Strings;
 
 import static java.util.Optional.ofNullable;
 
@@ -67,6 +65,7 @@ public class SwaggerAPIGenerator implements APIGenerator {
     private static final String DEFAULT_RETURN_CODE_METADATA_KEY = "default-return-code";
 
     private static final String EXCERPT_METADATA_KEY = "excerpt";
+    private static final String HTTP_RESPONSE_CODE_PROPERTY = "httpResponseCode";
 
     private final DataShapeGenerator dataShapeGenerator;
 
@@ -151,7 +150,8 @@ public class SwaggerAPIGenerator implements APIGenerator {
                     .action(modifiedEndAction)
                     .connection(template.getConnection())
                     .stepKind(StepKind.endpoint)
-                    .putConfiguredProperty("httpResponseCode", "501")
+                    .putConfiguredProperty(HTTP_RESPONSE_CODE_PROPERTY, "501")
+                    .putConfiguredProperty("errorResponseCodes", BaseDataShapeGenerator.getErrorResponseSpecification(operation))
                     .putMetadata("configured", "true")
                     .build();
 
@@ -266,7 +266,7 @@ public class SwaggerAPIGenerator implements APIGenerator {
             return code;
         }
         final Optional<String> httpCodeDescription = lastAction
-            .flatMap(a -> ofNullable(a.getProperties().get("httpResponseCode")))
+            .flatMap(a -> ofNullable(a.getProperties().get(HTTP_RESPONSE_CODE_PROPERTY)))
             .flatMap(prop -> prop.getEnum().stream()
                 .filter(e -> code.equals(e.getValue()))
                 .map(ConfigurationProperty.PropertyValue::getLabel)
@@ -281,8 +281,8 @@ public class SwaggerAPIGenerator implements APIGenerator {
         }
 
         final Step last = steps.get(steps.size() - 1);
-        if (last.getConfiguredProperties().containsKey("httpResponseCode")) {
-            final String responseCode = last.getConfiguredProperties().get("httpResponseCode");
+        if (last.getConfiguredProperties().containsKey(HTTP_RESPONSE_CODE_PROPERTY)) {
+            final String responseCode = last.getConfiguredProperties().get(HTTP_RESPONSE_CODE_PROPERTY);
             final String responseDesc = decodeHttpReturnCode(steps, responseCode);
             return new Flow.Builder()
                 .createFrom(flow)

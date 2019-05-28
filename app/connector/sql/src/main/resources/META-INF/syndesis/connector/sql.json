@@ -5,6 +5,16 @@
       "description": "Invoke SQL to obtain, store, update, or delete data.",
       "descriptor": {
         "componentScheme": "sql",
+        "standardizedErrors": [
+          {
+            "name": "DATA_ACCESS_ERROR",
+            "displayName": "DataAccessError"
+          },
+          {
+            "name": "ENTITY_NOT_FOUND_ERROR",
+            "displayName": "EntityNotFoundError"
+          }
+        ],
         "connectorCustomizers": [
           "io.syndesis.connector.sql.customizer.SqlConnectorCustomizer"
         ],
